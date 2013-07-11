@@ -13,43 +13,53 @@ if [ -f /etc/profile ]; then
   export PATH
 fi
 
-# get the current branch
-head="$(git symbolic-ref HEAD)"
+print_error(){
+  printf '\e[1G\033[31m%s\033[0m\n' "ERROR: $1"
+}
 
-# read the STDIN to detect if this push changed the current branch
+print_warning(){
+  printf '\e[1G\033[33m%s\033[0m\n' "WARN: $1"
+}
+
+publish_tag(){
+  oldrev=$(git rev-parse $1)
+  newrev=$(git rev-parse $2)
+  refname="$3"
+
+  if [ -z "${oldrev//0}" ]; then
+    change_type="create"
+  else
+    if [ -z "${newrev//0}" ]; then
+      change_type="delete"
+    else
+      change_type="update"
+    fi
+  fi
+
+  # abort if not a tag
+  if ! [[ "$refname" =~ ^refs/tags/ ]]; then
+    print_error "Can only deploy tags, aborting.."
+    exit
+  fi
+
+  # abort in case of delete
+  if [ $change_type == "delete" ]; then
+    print_warning "Deleting a tag does not unpublish it"
+    exit
+  fi
+
+  umask 002
+
+  # Reset working copy to $refname
+  git reset --hard $refname > /dev/null
+
+  # Clean working copy of build products
+  git clean -x -f -d > /dev/null
+
+  [ -x deploy/after_push ] && deploy/after_push $oldrev $newrev $refname
+}
+
 while read oldrev newrev refname
 do
-  [ "$refname" = "$head" ] && break
+  publish_tag $oldrev $newrev $refname
 done
-
-# abort if there's no update, or in case the branch is deleted
-if [ -z "${newrev//0}" ]; then
-  exit
-fi
-
-# check out the latest code into the working copy
-umask 002
-git reset --hard
-
-logfile=log/deploy.log
-restart=tmp/restart.txt
-
-if [ -z "${oldrev//0}" ]; then
-  # this is the first push; this branch was just created
-  mkdir -p log tmp
-  chmod 0775 log tmp
-  touch $logfile $restart
-  chmod 0664 $logfile $restart
-
-  # init submodules
-  git submodule update --recursive --init 2>&1 | tee -a $logfile
-
-  # execute the one-time setup hook
-  [ -x deploy/setup ] && deploy/setup $oldrev $newrev 2>&1 | tee -a $logfile
-else
-  # log timestamp
-  echo ==== $(date) ==== >> $logfile
-
-  # execute the main deploy hook
-  [ -x deploy/after_push ] && deploy/after_push $oldrev $newrev 2>&1 | tee -a $logfile
-fi
