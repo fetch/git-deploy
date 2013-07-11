@@ -37,17 +37,17 @@ FRAMEWORK_DIR=/usr/share/php/fetch-cms-core
 
 cd $FRAMEWORK_DIR/source
 
-composer install | sed 's/^/----->   /'
+composer --no-interaction install | sed 's/^/----->   /'
 echo
 
 nvm use | sed 's/^/----->   /'
 echo
 
 log "Installing npm packages"
-nvm use &> /dev/null && npm --silent install
+nvm use 1> /dev/null && npm --silent install
 
 log "Building assets using grunt"
-grunt release &> /dev/null
+grunt --no-color release &> /dev/null
 
 log "Syncing to $FRAMEWORK_DIR/$tag"
 rsync -lrpt --delete \
