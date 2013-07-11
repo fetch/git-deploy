@@ -6,12 +6,16 @@ newrev=$(git rev-parse $2)
 refname="$3"
 tag=$(git describe --tags $refname)
 
+# IO redirection
+exec 6>&1           # Link file descriptor #6 with stdout. Saves stdout.
+exec > /dev/null    # All normal output to /dev/null
+
 run() {
   [ -x $1 ] && $1 $oldrev $newrev $refname
 }
 
 log() {
-  echo -e "----->   $@\n"
+  echo -e "----->   $@\n" >&6
 }
 
 against=$oldrev
@@ -21,7 +25,7 @@ if [ -z "${oldrev//0}" ]; then
   against=4b825dc642cb6eb9a060e54bf8d69288fbee4904
 fi
 
-echo
+echo >&6
 log "Publishing Fetch CMS $tag"
 
 log "Files changed between versions: ${oldrev:0:7}..${newrev:0:7}:\
@@ -37,17 +41,17 @@ FRAMEWORK_DIR=/usr/share/php/fetch-cms-core
 
 cd $FRAMEWORK_DIR/source
 
-composer --no-interaction install | sed 's/^/----->   /'
-echo
+composer --no-interaction install | sed 's/^/----->   /' >&6
+echo >&6
 
-nvm use | sed 's/^/----->   /'
-echo
+nvm use | sed 's/^/----->   /' >&6
+echo >&6
 
 log "Installing npm packages"
-nvm use 1> /dev/null && npm --silent install
+nvm use && npm install
 
 log "Building assets using grunt"
-grunt --no-color release &> /dev/null
+grunt --no-color release
 
 log "Syncing to $FRAMEWORK_DIR/$tag"
 rsync -lrpt --delete \
