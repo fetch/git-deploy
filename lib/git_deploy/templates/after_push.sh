@@ -44,10 +44,10 @@ nvm use | sed 's/^/----->   /'
 echo
 
 log "Installing npm packages"
-npm --silent install
+nvm use &> /dev/null && npm --silent install
 
 log "Building assets using grunt"
-grunt release 1> /dev/null
+grunt release &> /dev/null
 
 log "Syncing to $FRAMEWORK_DIR/$tag"
 rsync -lrpt --delete \
