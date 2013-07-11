@@ -48,7 +48,7 @@ nvm use | sed 's/^/----->   /' >&6
 echo >&6
 
 log "Installing npm packages"
-nvm use && npm install
+nvm use && npm --silent install
 
 log "Building assets using grunt"
 grunt --no-color release
